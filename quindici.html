@@ -1,0 +1,713 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gioco del 15 — Drag & Drop</title>
+  <style>
+    :root{
+      --pad: 12px;
+      --size: 4;
+      --gap: 10px;
+      --tile: 70px;
+      --radius: 16px;
+      --shadow: 0 10px 25px rgba(0,0,0,.12);
+      --shadow2: 0 6px 14px rgba(0,0,0,.10);
+      --bg: #0b1220;
+      --panel: rgba(255,255,255,.08);
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.68);
+      --accent: #7dd3fc;
+      --ok: #86efac;
+      --warn: #fda4af;
+      --danger: #fb7185;
+      --glass: rgba(255,255,255,.10);
+    }
+
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:
+        radial-gradient(1100px 600px at 15% 10%, rgba(125,211,252,.18), transparent 60%),
+        radial-gradient(900px 500px at 85% 20%, rgba(134,239,172,.12), transparent 55%),
+        radial-gradient(900px 700px at 50% 90%, rgba(253,164,175,.10), transparent 60%),
+        var(--bg);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color: var(--text);
+      padding: 24px;
+    }
+
+    .app{
+      width:min(560px, 96vw);
+      background: var(--panel);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+      backdrop-filter: blur(10px);
+    }
+
+    header{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap: 14px;
+      margin-bottom: 12px;
+    }
+
+    h1{
+      font-size: 18px;
+      margin: 0 0 4px 0;
+      letter-spacing: .2px;
+    }
+    .sub{
+      margin:0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .top-right{
+      display:flex;
+      flex-direction:column;
+      align-items:flex-end;
+      gap:10px;
+      min-width: 180px;
+    }
+
+    .stats{
+      display:flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content:flex-end;
+      align-items:center;
+    }
+    .pill{
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.10);
+      border: 1px solid rgba(255,255,255,.12);
+      font-size: 12px;
+      color: var(--muted);
+      display:flex;
+      align-items:center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+    .pill b{ color: var(--text); font-weight: 800; }
+
+    .selectors{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      justify-content:flex-end;
+      flex-wrap: wrap;
+    }
+
+    label{
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    select{
+      appearance:none;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.10);
+      color: var(--text);
+      padding: 9px 10px;
+      border-radius: 14px;
+      font-weight: 650;
+      cursor: pointer;
+      outline:none;
+      min-width: 104px;
+    }
+
+    .grid-wrap{
+      display:flex;
+      justify-content:center;
+      margin: 10px 0 14px 0;
+    }
+
+    /* Board acts as a positioning stage */
+    .grid{
+      width: calc(2 * var(--pad) + var(--size) * var(--tile) + (var(--size) - 1) * var(--gap));
+      height: calc(2 * var(--pad) + var(--size) * var(--tile) + (var(--size) - 1) * var(--gap));
+      padding: var(--pad);
+      border-radius: 22px;
+      background: rgba(0,0,0,.18);
+      border: 1px solid rgba(255,255,255,.10);
+      box-shadow: var(--shadow2);
+      position: relative;
+      touch-action: none;
+      user-select: none;
+      overflow: hidden;
+    }
+
+    /* Drop target overlay for the empty spot */
+    .drop-target{
+      position:absolute;
+      border-radius: var(--radius);
+      background: rgba(255,255,255,.06);
+      border: 1px dashed rgba(255,255,255,.12);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      transition: outline .12s ease, background .12s ease, border-color .12s ease;
+      pointer-events: none; /* enabled only when needed */
+    }
+    .drop-target.empty{
+      background: rgba(255,255,255,.03);
+      border-style: solid;
+      border-color: rgba(255,255,255,.08);
+    }
+    .drop-target.drop-ok{
+      outline: 2px solid rgba(125,211,252,.9);
+      outline-offset: 2px;
+      background: rgba(125,211,252,.08);
+      border-style: solid;
+      border-color: rgba(125,211,252,.35);
+    }
+
+    .tile{
+      width: var(--tile);
+      height: var(--tile);
+      border-radius: var(--radius);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.08));
+      border: 1px solid rgba(255,255,255,.18);
+      box-shadow: 0 10px 18px rgba(0,0,0,.18);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: .5px;
+      color: rgba(255,255,255,.95);
+      cursor: grab;
+      position: absolute; /* animated positioning */
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 140ms ease;
+      will-change: transform;
+    }
+
+    .tile:active{ cursor: grabbing; }
+
+    .tile.can-move{
+      border-color: rgba(125,211,252,.55);
+      box-shadow: 0 12px 22px rgba(0,0,0,.22), 0 0 0 2px rgba(125,211,252,.15) inset;
+    }
+
+    .tile.dragging{
+      opacity: .82;
+      transform: translate(var(--x), var(--y)) scale(1.02);
+    }
+
+    .tile.blocked{
+      opacity: .55;
+      cursor: not-allowed;
+      filter: saturate(.75);
+    }
+
+    .controls{
+      display:flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items:center;
+    }
+
+    button{
+      appearance:none;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.10);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 14px;
+      font-weight: 750;
+      letter-spacing: .2px;
+      cursor: pointer;
+      transition: transform .04s ease, background .15s ease;
+      min-width: 120px;
+    }
+    button:hover{ background: rgba(255,255,255,.14); }
+    button:active{ transform: translateY(1px); }
+
+    .msg{
+      margin-top: 10px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height:1.35;
+      min-height: 1.35em;
+    }
+    .msg.ok{ color: rgba(134,239,172,.95); }
+    .msg.warn{ color: rgba(253,164,175,.95); }
+
+    @media (max-width: 420px){
+      :root{ --tile: 72px; --gap: 9px; }
+      .app{ padding: 14px; }
+      .grid{ padding: 10px; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app" role="application" aria-label="Gioco del 15 con drag and drop">
+    <header>
+      <div>
+        <h1>Gioco del 15 — Drag &amp; Drop</h1>
+        <p class="sub">
+          Trascina solo una tessera <b>adiacente</b> nello spazio vuoto.
+          (Supporto touch: trascina e rilascia sul vuoto, oppure tocca per muovere.)
+        </p>
+      </div>
+
+      <div class="top-right">
+        <div class="selectors">
+          <label for="sizeSel">Griglia</label>
+          <select id="sizeSel" aria-label="Seleziona dimensione griglia">
+            <option value="3">3×3</option>
+            <option value="4" selected>4×4</option>
+            <option value="5">5×5</option>
+          </select>
+        </div>
+        <div class="stats">
+          <div class="pill">Tempo: <b id="time">00:00</b></div>
+          <div class="pill">Mosse: <b id="moves">0</b></div>
+          <div class="pill">Stato: <b id="state">in corso</b></div>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid-wrap">
+      <div id="grid" class="grid" aria-label="griglia di gioco"></div>
+    </div>
+
+    <div class="controls">
+      <button id="shuffleBtn" type="button">Mescola</button>
+      <button id="resetBtn" type="button">Risolto</button>
+      <button id="helpBtn" type="button">Suggerimento</button>
+    </div>
+
+    <div id="msg" class="msg" aria-live="polite"></div>
+  </div>
+
+<script>
+(() => {
+  const gridEl = document.getElementById('grid');
+  const movesEl = document.getElementById('moves');
+  const timeEl  = document.getElementById('time');
+  const stateEl = document.getElementById('state');
+  const msgEl   = document.getElementById('msg');
+  const sizeSel = document.getElementById('sizeSel');
+
+  let SIZE = Number(sizeSel.value);
+  let N = SIZE * SIZE;
+
+  let board = [];              // length N, tiles 1..N-1 and 0 for empty
+  let moves = 0;
+
+  // Timer
+  let startMs = null;
+  let timerId = null;
+
+  // DnD
+  let draggingValue = null;
+
+  // DOM cache for tiles and empty target
+  const tileEls = new Map();   // value -> element
+  let emptyTargetEl = null;
+
+  function setMsg(text, kind="") {
+    msgEl.textContent = text || "";
+    msgEl.className = "msg" + (kind ? " " + kind : "");
+  }
+
+  function pad2(n){ return String(n).padStart(2,"0"); }
+  function fmtTime(ms){
+    const s = Math.floor(ms/1000);
+    const m = Math.floor(s/60);
+    const r = s%60;
+    return `${pad2(m)}:${pad2(r)}`;
+  }
+  function startTimer(){
+    if (timerId) return;
+    startMs = Date.now();
+    timerId = setInterval(() => {
+      if (startMs == null) return;
+      timeEl.textContent = fmtTime(Date.now() - startMs);
+    }, 250);
+  }
+  function stopTimer(){
+    if (timerId){
+      clearInterval(timerId);
+      timerId = null;
+    }
+  }
+  function resetTimer(){
+    stopTimer();
+    startMs = null;
+    timeEl.textContent = "00:00";
+  }
+
+  function idxToRC(i){ return { r: Math.floor(i / SIZE), c: i % SIZE }; }
+  function rcToIdx(r,c){ return r*SIZE + c; }
+
+  function findZero(){
+    return board.indexOf(0);
+  }
+
+  function isAdjacent(i, j){
+    const a = idxToRC(i), b = idxToRC(j);
+    const dr = Math.abs(a.r - b.r);
+    const dc = Math.abs(a.c - b.c);
+    return (dr + dc) === 1;
+  }
+
+  function isSolved(){
+    for (let i=0; i<N-1; i++){
+      if (board[i] !== i+1) return false;
+    }
+    return board[N-1] === 0;
+  }
+
+  // Solvability check for NxN
+  function isSolvable(arr){
+    let inv = 0;
+    const a = arr.filter(x => x !== 0);
+    for (let i=0;i<a.length;i++){
+      for (let j=i+1;j<a.length;j++){
+        if (a[i] > a[j]) inv++;
+      }
+    }
+    if (SIZE % 2 === 1){
+      return (inv % 2 === 0);
+    } else {
+      const zeroIndex = arr.indexOf(0);
+      const { r } = idxToRC(zeroIndex);
+      const rowFromBottom = SIZE - r; // 1..SIZE
+      const rowEven = (rowFromBottom % 2 === 0);
+      const invEven = (inv % 2 === 0);
+      return (rowEven && !invEven) || (!rowEven && invEven);
+    }
+  }
+
+  function solvedBoard(){
+    const arr = [];
+    for (let i=1;i<N;i++) arr.push(i);
+    arr.push(0);
+    return arr;
+  }
+
+  function shuffledBoard(){
+    let arr;
+    const solved = solvedBoard().join(",");
+    do{
+      arr = [];
+      const pool = [];
+      for (let i=0;i<N;i++) pool.push(i); // 0..N-1
+      while (pool.length){
+        const k = Math.floor(Math.random() * pool.length);
+        arr.push(pool.splice(k,1)[0]);
+      }
+    } while (!isSolvable(arr) || arr.join(",") === solved);
+    return arr;
+  }
+
+  // Layout helpers (absolute positioning + animation)
+  function cellXY(index){
+    const { r, c } = idxToRC(index);
+    const gap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gap')) || 10;
+    const tile = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tile')) || 82;
+    const pad = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--pad')) || 12;
+    const x = pad + c * (tile + gap);
+    const y = pad + r * (tile + gap);
+    return { x, y };
+  }
+
+  function setTileTransform(tileEl, index){
+    const { x, y } = cellXY(index);
+    tileEl.style.setProperty('--x', x + 'px');
+    tileEl.style.setProperty('--y', y + 'px');
+    tileEl.style.transform = `translate(${x}px, ${y}px)`;
+  }
+
+  function updateEmptyTarget(){
+    const z = findZero();
+    const { x, y } = cellXY(z);
+    emptyTargetEl.style.left = x + 'px';
+    emptyTargetEl.style.top  = y + 'px';
+    const tile = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tile')) || 82;
+    emptyTargetEl.style.width = tile + 'px';
+    emptyTargetEl.style.height= tile + 'px';
+  }
+
+  function setStateUI(){
+    movesEl.textContent = String(moves);
+    const won = isSolved();
+    stateEl.textContent = won ? "vinto" : "in corso";
+    stateEl.style.color = won ? "rgba(134,239,172,.95)" : "rgba(255,255,255,.92)";
+    if (won){
+      setMsg("Brava! Hai risolto il gioco 🎉", "ok");
+      stopTimer();
+    }
+  }
+
+  function getMovableValues(){
+    const z = findZero();
+    const {r,c} = idxToRC(z);
+    const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+    const out = [];
+    for (const [dr,dc] of dirs){
+      const rr = r+dr, cc = c+dc;
+      if (rr>=0 && rr<SIZE && cc>=0 && cc<SIZE){
+        const v = board[rcToIdx(rr,cc)];
+        if (v !== 0) out.push(v);
+      }
+    }
+    return out;
+  }
+
+  function refreshTileClasses(){
+    const movable = new Set(getMovableValues());
+    for (const [val, el] of tileEls.entries()){
+      el.classList.toggle('can-move', movable.has(val));
+      el.classList.toggle('blocked', !movable.has(val));
+      // hard block drag for invalid tiles
+      el.draggable = movable.has(val);
+      el.setAttribute('aria-disabled', String(!movable.has(val)));
+    }
+    // Enable pointer events on drop target only while dragging
+    emptyTargetEl.style.pointerEvents = (draggingValue != null) ? 'auto' : 'none';
+  }
+
+  function attemptMoveValue(val){
+    const fromIdx = board.indexOf(val);
+    const toIdx = findZero();
+    if (fromIdx < 0) return false;
+    if (!isAdjacent(fromIdx, toIdx)){
+      setMsg("Mossa non valida: la tessera deve essere adiacente allo spazio vuoto.", "warn");
+      return false;
+    }
+
+    // Start timer on first real move
+    if (!timerId) startTimer();
+
+    // Swap in board
+    board[toIdx] = val;
+    board[fromIdx] = 0;
+    moves++;
+
+    // Animate tile to new cell (smooth slide)
+    const el = tileEls.get(val);
+    setTileTransform(el, toIdx);
+    updateEmptyTarget();
+    refreshTileClasses();
+    setMsg("");
+    setStateUI();
+    return true;
+  }
+
+  function buildBoardDOM(){
+    tileEls.clear();
+    gridEl.innerHTML = "";
+
+    // Set CSS var size for responsive layout width/height
+    document.documentElement.style.setProperty('--size', String(SIZE));
+
+    // Create empty drop target (visual placeholder for empty cell)
+    emptyTargetEl = document.createElement('div');
+    emptyTargetEl.className = 'drop-target empty';
+    emptyTargetEl.setAttribute('aria-label','Spazio vuoto');
+    gridEl.appendChild(emptyTargetEl);
+
+    // Create tiles (absolute positioned)
+    for (let v=1; v<N; v++){
+      const tile = document.createElement('div');
+      tile.className = 'tile';
+      tile.textContent = String(v);
+      tile.dataset.value = String(v);
+      tile.draggable = false; // enabled only if movable
+      tile.setAttribute('role', 'button');
+      tile.setAttribute('aria-label', 'Tessera ' + v);
+
+      // Desktop drag & drop (only when draggable=true)
+      tile.addEventListener('dragstart', (e) => {
+        if (tile.draggable !== true) { e.preventDefault(); return; }
+        draggingValue = Number(tile.dataset.value);
+        tile.classList.add('dragging');
+        e.dataTransfer.setData("text/plain", tile.dataset.value);
+        e.dataTransfer.effectAllowed = "move";
+        emptyTargetEl.classList.add('drop-ok');
+        emptyTargetEl.style.pointerEvents = 'auto';
+        setMsg("");
+      });
+
+      tile.addEventListener('dragend', () => {
+        draggingValue = null;
+        tile.classList.remove('dragging');
+        emptyTargetEl.classList.remove('drop-ok');
+        emptyTargetEl.style.pointerEvents = 'none';
+        // Sopprime eventuale click subito dopo il drag
+        tile._suppressClickUntil = Date.now() + 350;
+      });
+
+      // Tap to move (always allowed, but validated)
+      tile.addEventListener('click', () => {
+        // Evita che un 'click' fantasma dopo un drag muova un'altra tessera.
+        if (tile._suppressClickUntil && Date.now() < tile._suppressClickUntil) return;
+        const val = Number(tile.dataset.value);
+        if (!attemptMoveValue(val)){
+          // if not adjacent, show which are movable
+          const movable = getMovableValues();
+          setMsg("Puoi muovere: " + movable.join(", ") + ".", "warn");
+        }
+      });
+
+      // Touch/pointer "drag": drag gesture then release over empty spot
+      tile.addEventListener('pointerdown', (e) => {
+        if (!tile.draggable) return; // block invalid tiles
+        tile.setPointerCapture(e.pointerId);
+        tile._drag = { x0: e.clientX, y0: e.clientY, moved: false };
+        draggingValue = Number(tile.dataset.value);
+        tile.classList.add('dragging');
+        emptyTargetEl.classList.add('drop-ok');
+        emptyTargetEl.style.pointerEvents = 'auto';
+      });
+
+      tile.addEventListener('pointermove', (e) => {
+        if (!tile._drag) return;
+        const dx = e.clientX - tile._drag.x0;
+        const dy = e.clientY - tile._drag.y0;
+        if (Math.abs(dx) + Math.abs(dy) > 6) tile._drag.moved = true;
+      });
+
+      tile.addEventListener('pointerup', (e) => {
+        if (!tile._drag) return;
+        const moved = tile._drag.moved;
+        tile._drag = null;
+
+        // If a drag gesture, try to drop onto empty target
+        if (moved){
+          const el = document.elementFromPoint(e.clientX, e.clientY);
+          const hitEmpty = el && (el === emptyTargetEl || el.closest?.('.drop-target') === emptyTargetEl);
+          if (hitEmpty){
+            attemptMoveValue(Number(tile.dataset.value));
+          }
+          // Sopprime il click che può scattare dopo un drag
+          tile._suppressClickUntil = Date.now() + 350;
+        }
+
+        draggingValue = null;
+        tile.classList.remove('dragging');
+        emptyTargetEl.classList.remove('drop-ok');
+        emptyTargetEl.style.pointerEvents = 'none';
+      });
+
+      tileEls.set(v, tile);
+      gridEl.appendChild(tile);
+    }
+
+    // Drop target behavior (desktop DnD)
+    emptyTargetEl.addEventListener('dragover', (e) => {
+      if (draggingValue == null) return;
+      // allow drop only if dragged tile is adjacent to empty
+      const from = board.indexOf(draggingValue);
+      const to = findZero();
+      if (isAdjacent(from, to)){
+        e.preventDefault();
+        emptyTargetEl.classList.add('drop-ok');
+      }
+    });
+    emptyTargetEl.addEventListener('dragleave', () => emptyTargetEl.classList.remove('drop-ok'));
+    emptyTargetEl.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (draggingValue == null) return;
+      emptyTargetEl.classList.remove('drop-ok');
+      attemptMoveValue(draggingValue);
+    });
+  }
+
+  function renderPositions(){
+    // place tiles according to current board
+    for (let idx=0; idx<N; idx++){
+      const v = board[idx];
+      if (v === 0) continue;
+      const el = tileEls.get(v);
+      setTileTransform(el, idx);
+    }
+    updateEmptyTarget();
+    refreshTileClasses();
+    setStateUI();
+  }
+
+  function setSolved(){
+    board = solvedBoard();
+    moves = 0;
+    resetTimer();
+    setMsg("Configurazione risolta impostata.", "");
+    buildBoardDOM();
+    renderPositions();
+  }
+
+  function doShuffle(){
+    board = shuffledBoard();
+    moves = 0;
+    resetTimer();
+    setMsg("Mescolato. Buon gioco!", "");
+    buildBoardDOM();
+    renderPositions();
+  }
+
+  function hint(){
+    const movable = getMovableValues();
+    if (movable.length){
+      setMsg("Puoi muovere: " + movable.join(", ") + ".", "");
+    } else {
+      setMsg("", "");
+    }
+  }
+
+  function applySize(newSize){
+    SIZE = newSize;
+    N = SIZE * SIZE;
+    // adjust tile size for large boards (5x5) to fit better on small screens
+    // Keep it simple: tweak CSS var --tile based on size and viewport width.
+    const vw = Math.min(window.innerWidth, 560);
+    let tile;
+    if (SIZE === 3) tile = 84;
+    else if (SIZE === 4) tile = 70;
+    else tile = 50;
+    if (vw < 420){
+      if (SIZE === 3) tile = 76;
+      else if (SIZE === 4) tile = 64;
+      else tile = 50;
+    }
+    document.documentElement.style.setProperty('--tile', tile + 'px');
+    setSolved();
+    doShuffle();
+  }
+
+  // Wire controls
+  document.getElementById('shuffleBtn').addEventListener('click', doShuffle);
+  document.getElementById('resetBtn').addEventListener('click', setSolved);
+  document.getElementById('helpBtn').addEventListener('click', hint);
+
+  sizeSel.addEventListener('change', () => {
+    applySize(Number(sizeSel.value));
+  });
+
+  window.addEventListener('resize', () => {
+    // Recompute positions to match CSS size changes (mobile orientation, etc.)
+    renderPositions();
+  });
+
+  // Init
+  applySize(Number(sizeSel.value));
+})();
+</script>
+</body>
+</html>
